@@ -118,8 +118,8 @@ static void begin(void)         { fprintf(output, "\n  {"); }
 static void end(void)           { fprintf(output, "\n  }"); }
 static void label(int n)        { fprintf(output, "\n  l%d:;\t", n); }
 static void jump(int n)         { fprintf(output, "  goto l%d;", n); }
-static void save(int n)         { fprintf(output, "  int yypos%d= G->pos, yythunkpos%d= G->thunkpos;", n, n); }
-static void restore(int n)      { fprintf(output,     "  G->pos= yypos%d; G->thunkpos= yythunkpos%d;", n, n); }
+static void save(int n)         { fprintf(output, "  G->maxPos=G->maxPos>G->pos?G->maxPos:G->pos; int yypos%d= G->pos, yythunkpos%d= G->thunkpos;", n, n); }
+static void restore(int n)      { fprintf(output, "  G->pos= yypos%d; G->thunkpos= yythunkpos%d;", n, n); }
 
 static void callErrBlock(Node * node) {
     fprintf(output, " { YY_XTYPE YY_XVAR = (YY_XTYPE) G->data; int yyindex = G->offset + G->pos; %s; }", ((struct Any*) node)->errblock);
@@ -146,8 +146,14 @@ static void Node_compile_c_ko(Node *node, int ko)
             callErrBlock(node);
         }
         fprintf(output, " goto l%d; }", ko);
-        if (node->name.variable)
-          fprintf(output, "  yyDo(G, yySet, %d, 0);", node->name.variable->variable.offset);
+        if (node->name.variable) {
+          if (!node->name.variable->variable.collection) {
+            fprintf(output, "  yyDo(G, yySet, %d, 0);", node->name.variable->variable.offset); 
+          } else {
+            fprintf(output, "  yyDo(G, yyAddToCollection, %d, 0);", node->name.variable->variable.offset);             
+            //fprintf(output, "  G->collectionStack.top()[\"%s\"].push_back(std::move(G->ss));",node->name.variable->variable.name);
+          }
+        }
       }
       break;
 
@@ -285,14 +291,31 @@ static int countVariables(Node *node)
   return count;
 }
 
+static int countCollectionVariables(Node *node)
+{
+  int count= 0;
+  while (node)
+    {
+      if (node->variable.collection) ++count;
+      node= node->variable.next;
+    }
+  return count;
+}
+
 static void defineVariables(Node *node)
 {
   int count= 0;
   while (node)
     {
-      fprintf(output, "#define %s G->val[%d]\n", node->variable.name, --count);
-      node->variable.offset= count;
-      node= node->variable.next;
+      if (node->variable.collection) {
+        fprintf(output, "#define %s (G->collectionStack.top()[%d])\n", node->variable.name, --count);
+        node->variable.offset= count;
+        node= node->variable.next;
+      } else {
+        fprintf(output, "#define %s G->val[%d]\n", node->variable.name, --count);
+        node->variable.offset= count;
+        node= node->variable.next;
+      }
     }
 }
 
@@ -324,13 +347,20 @@ static void Rule_compile_c2(Node *node)
 
       fprintf(output, "\nYY_RULE(int) yy_%s(GREG *G)\n{", node->rule.name);
       if (!safe) save(0);
-      if (node->rule.variables)
+      if (node->rule.variables) {
+          //fprintf(output, "  G->collectionStack.push(std::unordered_map<std::string,std::vector<YYSTYPE>>());");
+        if (countCollectionVariables(node->rule.variables))
+          fprintf(output, "  yyDo(G, yyPushCollection, 0, 0);");
         fprintf(output, "  yyDo(G, yyPush, %d, 0);", countVariables(node->rule.variables));
+      }
       fprintf(output, "\n  yyprintf((stderr, \"%%s\\n\", \"%s\"));", node->rule.name);
       Node_compile_c_ko(node->rule.expression, ko);
       fprintf(output, "\n  yyprintf((stderr, \"  ok   %%s @ %%s\\n\", \"%s\", G->buf+G->pos));", node->rule.name);
-      if (node->rule.variables)
+      if (node->rule.variables) {
         fprintf(output, "  yyDo(G, yyPop, %d, 0);", countVariables(node->rule.variables));
+        if (countCollectionVariables(node->rule.variables))
+          fprintf(output, "  yyDo(G, yyPopCollection, 0, 0);");
+      }
       fprintf(output, "\n  return 1;");
       if (!safe)
         {
@@ -350,7 +380,11 @@ static char *header= "\
 #include <stdio.h>\n\
 #include <stdlib.h>\n\
 #include <string.h>\n\
-struct _GREG;\n\
+#include <memory>\n\
+#include <vector>\n\
+#include <unordered_map>\n\
+#include <stack>\n\
+struct GREG;\n\
 ";
 
 static char *preamble= "\
@@ -423,10 +457,10 @@ static char *preamble= "\
 #define yy G->ss\n\
 \n\
 struct _yythunk; // forward declaration\n\
-typedef void (*yyaction)(struct _GREG *G, char *yytext, int yyleng, struct _yythunk *thunkpos, YY_XTYPE YY_XVAR);\n\
+typedef void (*yyaction)(GREG *G, char *yytext, int yyleng, struct _yythunk *thunkpos, YY_XTYPE YY_XVAR);\n\
 typedef struct _yythunk { int begin, end;  yyaction  action;  struct _yythunk *next; } yythunk;\n\
 \n\
-typedef struct _GREG {\n\
+struct GREG {\n\
   char *buf;\n\
   int buflen;\n\
   int   offset;\n\
@@ -444,7 +478,10 @@ typedef struct _GREG {\n\
   YYSTYPE *vals;\n\
   int valslen;\n\
   YY_XTYPE data;\n\
-} GREG;\n\
+  int maxPos;\n\
+  std::stack<std::unordered_map<int,std::vector<YYSTYPE>>> collectionStack;\n\
+  GREG() : buf(0),buflen(0),offset(0),pos(0),limit(0),text(0),textlen(0),begin(0),end(0),thunks(0),thunkslen(0),thunkpos(0),val(0),vals(0),valslen(0),data(0),maxPos(0) {}\n\
+};\n\
 \n\
 YY_LOCAL(int) yyrefill(GREG *G)\n\
 {\n\
@@ -585,7 +622,12 @@ YY_LOCAL(int) yyAccept(GREG *G, int tp0)\n\
 \n\
 YY_LOCAL(void) yyPush(GREG *G, char *text, int count, yythunk *thunk, YY_XTYPE YY_XVAR) { G->val += count; }\n\
 YY_LOCAL(void) yyPop(GREG *G, char *text, int count, yythunk *thunk, YY_XTYPE YY_XVAR)  { G->val -= count; }\n\
-YY_LOCAL(void) yySet(GREG *G, char *text, int count, yythunk *thunk, YY_XTYPE YY_XVAR)  { G->val[count]= G->ss; }\n\
+YY_LOCAL(void) yySet(GREG *G, char *text, int count, yythunk *thunk, YY_XTYPE YY_XVAR)  { G->val[count]= std::move(G->ss); }\n\
+\n\
+YY_LOCAL(void) yyPushCollection(GREG *G, char *text, int count, yythunk *thunk, YY_XTYPE YY_XVAR) { G->collectionStack.push(std::unordered_map<int,std::vector<YYSTYPE>>()); }\n\
+YY_LOCAL(void) yyPopCollection(GREG *G, char *text, int count, yythunk *thunk, YY_XTYPE YY_XVAR) { G->collectionStack.pop(); }\n\
+YY_LOCAL(void) yyAddToCollection(GREG *G, char *text, int count, yythunk *thunk, YY_XTYPE YY_XVAR) { G->collectionStack.top()[count].push_back(std::move(G->ss)); }\n\
+\n\
 \n\
 #endif /* YY_PART */\n\
 \n\
@@ -644,7 +686,7 @@ YY_PARSE(int) YY_NAME(parse)(GREG *G)\n\
 \n\
 YY_PARSE(void) YY_NAME(init)(GREG *G)\n\
 {\n\
-    memset(G, 0, sizeof(GREG));\n\
+    //memset(G, 0, sizeof(GREG));\n\
 }\n\
 YY_PARSE(void) YY_NAME(deinit)(GREG *G)\n\
 {\n\

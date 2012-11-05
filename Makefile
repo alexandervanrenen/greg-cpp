@@ -1,4 +1,4 @@
-CFLAGS = -g -Wall $(OFLAGS) $(XFLAGS)
+CFLAGS = -std=c++11 -g -Wall $(OFLAGS) $(XFLAGS)
 OFLAGS = -O3 -DNDEBUG
 #OFLAGS = -pg
 
@@ -7,7 +7,7 @@ OBJS = tree.o compile.o
 all : greg
 
 greg : greg.o $(OBJS)
-	$(CC) $(CFLAGS) -o $@-new greg.o $(OBJS)
+	$(CXX) $(CFLAGS) -o $@-new greg.o $(OBJS)
 	mv $@-new $@
 
 ROOT	=
@@ -23,7 +23,8 @@ $(BINDIR)/% : %
 uninstall : .FORCE
 	rm -f $(BINDIR)/greg
 
-greg.o : greg.c
+%.o:     %.c
+	$(CXX) $(CFLAGS) -c -o $@ $<	
 
 grammar : .FORCE
 	./greg -o greg.c greg.g
@@ -38,7 +39,7 @@ samples/calc.c: samples/calc.leg greg
 	./greg -o $@ $<
 
 samples/calc: samples/calc.c
-	$(CC) $(CFLAGS) -o $@ $<
+	$(CXX) $(CFLAGS) -o $@ $<
 
 test: samples/calc greg-testing
 	echo '21 * 2 + 0' | ./samples/calc | grep 42
@@ -46,11 +47,11 @@ test: samples/calc greg-testing
 run: greg.g greg
 	mkdir -p selftest
 	./greg -o testing1.c greg.g
-	$(CC) $(CFLAGS) -o selftest/testing1 testing1.c $(OBJS)
+	$(CXX) $(CFLAGS) -o selftest/testing1 testing1.c $(OBJS)
 	$(TOOL) ./selftest/testing1 -o testing2.c greg.g
-	$(CC) $(CFLAGS) -o selftest/testing2 testing2.c $(OBJS)
+	$(CXX) $(CFLAGS) -o selftest/testing2 testing2.c $(OBJS)
 	$(TOOL) ./selftest/testing2 -o selftest/calc.c ./samples/calc.leg
-	$(CC) $(CFLAGS) -o selftest/calc selftest/calc.c
+	$(CXX) $(CFLAGS) -o selftest/calc selftest/calc.c
 	$(TOOL) echo '21 * 2 + 0' | ./selftest/calc | grep 42
 
 .FORCE :

@@ -17,6 +17,7 @@
  */
 
 #include <stdio.h>
+#include <cstdint>
 
 #define GREG_MAJOR      0
 #define GREG_MINOR      4
@@ -32,7 +33,7 @@ enum {
 typedef union Node Node;
 
 struct Rule      { int type;  Node *next;   char *errblock;  char *name;  Node *variables;  Node *expression;  int id;  int flags;       };
-struct Variable  { int type;  Node *next;   char *errblock;  char *name;  Node *value;  int offset;                                      };
+struct Variable  { int type;  Node *next;   char *errblock;  char *name;  Node *value;  int offset;  bool collection;                    };
 struct Name      { int type;  Node *next;   char *errblock;  Node *rule;  Node *variable;                                                };
 struct Dot       { int type;  Node *next;   char *errblock;                                                                              };
 struct Character { int type;  Node *next;   char *errblock;  char *value;                                                                };

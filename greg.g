@@ -46,7 +46,7 @@
   void makeHeader(char *text);
   void makeTrailer(char *text);
 
-  void yyerror(struct _GREG *, char *message);
+  void yyerror(GREG *, char *message);
 
 # define YY_INPUT(buf, result, max, D)		\
   {						\
@@ -89,7 +89,7 @@ suffix=		primary (QUESTION			{ push(makeQuery(pop())); }
 			)?
 
 primary=	(
-                identifier				{ push(makeVariable(yytext)); }
+                varidentifier				{ push(makeVariable(yytext)); }
 			COLON identifier !EQUAL		{ Node *name= makeName(findRule(yytext));  name->name.variable= pop();  push(name); }
 |		identifier !EQUAL			{ push(makeName(findRule(yytext))); }
 |		OPEN expression CLOSE
@@ -103,6 +103,7 @@ primary=	(
 
 # Lexical syntax
 
+varidentifier=	< [-a-zA-Z_@][-a-zA-Z_0-9]* > -
 identifier=	< [-a-zA-Z_][-a-zA-Z_0-9]* > -
 
 literal=	['] < ( !['] char )* > ['] -
@@ -148,7 +149,7 @@ end-of-file=	!.
 
 %%
 
-void yyerror(struct _GREG *G, char *message)
+void yyerror(GREG *G, char *message)
 {
   fprintf(stderr, "%s:%d: %s", fileName, lineNumber, message);
   if (G->text[0]) fprintf(stderr, " near token '%s'", G->text);
