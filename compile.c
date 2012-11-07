@@ -141,7 +141,11 @@ static void Node_compile_c_ko(Node *node, int ko)
 
     case Name:
       {
-        fprintf(output, "  if (!yy_%s(G)) {", node->name.rule->rule.name);
+        if (node->name.variable) fprintf(output," yyDo(G,yyResetSS,0,0); ");
+        if (node->name.variable&&!node->name.variable->variable.collection)
+          fprintf(output, "  yyDo(G, yySet, %d, 0);", node->name.variable->variable.offset);
+          
+        fprintf(output, " if (!yy_%s(G)) {", node->name.rule->rule.name);
         if(((struct Any*) node)->errblock) {
             callErrBlock(node);
         }
@@ -348,7 +352,6 @@ static void Rule_compile_c2(Node *node)
       fprintf(output, "\nYY_RULE(int) yy_%s(GREG *G)\n{", node->rule.name);
       if (!safe) save(0);
       if (node->rule.variables) {
-          //fprintf(output, "  G->collectionStack.push(std::unordered_map<std::string,std::vector<YYSTYPE>>());");
         if (countCollectionVariables(node->rule.variables))
           fprintf(output, "  yyDo(G, yyPushCollection, 0, 0);");
         fprintf(output, "  yyDo(G, yyPush, %d, 0);", countVariables(node->rule.variables));
@@ -452,6 +455,25 @@ static char *preamble= "\
 #define YY_BUFFER_START_SIZE 1024\n\
 #endif\n\
 \n\
+#ifndef YY_AST_TYPE\n\
+#define YY_AST_TYPE\n\
+#endif\n\
+\n\
+#ifndef YY_CTYPE_DEFINITION \n\
+#define YY_CTYPE_DEFINITION() \\\n\
+  struct Collection YY_AST_TYPE { \\\n\
+    std::vector<YYSTYPE> items; \\\n\
+    void push_back(YYSTYPE&& item) { items.push_back(std::move(item)); } \\\n\
+    operator std::vector<YYSTYPE>&() { return items; } \\\n\
+  };\n\
+#endif\n\
+\n\
+YY_CTYPE_DEFINITION()\n\
+\n\
+#ifndef YY_CTYPE\n\
+#define YY_CTYPE Collection\n\
+#endif\n\
+\n\
 #ifndef YY_PART\n\
 #define yydata G->data\n\
 #define yy G->ss\n\
@@ -479,7 +501,7 @@ struct GREG {\n\
   int valslen;\n\
   YY_XTYPE data;\n\
   int maxPos;\n\
-  std::stack<std::unordered_map<int,std::vector<YYSTYPE>>> collectionStack;\n\
+  std::stack<std::unordered_map<int,std::unique_ptr<YY_CTYPE>>> collectionStack;\n\
   GREG() : buf(0),buflen(0),offset(0),pos(0),limit(0),text(0),textlen(0),begin(0),end(0),thunks(0),thunkslen(0),thunkpos(0),val(0),vals(0),valslen(0),data(0),maxPos(0) {}\n\
 };\n\
 \n\
@@ -620,13 +642,14 @@ YY_LOCAL(int) yyAccept(GREG *G, int tp0)\n\
   return 1;\n\
 }\n\
 \n\
-YY_LOCAL(void) yyPush(GREG *G, char *text, int count, yythunk *thunk, YY_XTYPE YY_XVAR) { G->val += count; }\n\
+YY_LOCAL(void) yyPush(GREG *G, char *text, int count, yythunk *thunk, YY_XTYPE YY_XVAR) { while(count--) { new (&G->val[0]) YYSTYPE(); G->val++; } }\n\
 YY_LOCAL(void) yyPop(GREG *G, char *text, int count, yythunk *thunk, YY_XTYPE YY_XVAR)  { G->val -= count; }\n\
 YY_LOCAL(void) yySet(GREG *G, char *text, int count, yythunk *thunk, YY_XTYPE YY_XVAR)  { G->val[count]= std::move(G->ss); }\n\
+YY_LOCAL(void) yyResetSS(GREG *G, char *text, int count, yythunk *thunk, YY_XTYPE YY_XVAR)  { new (&G->ss) YYSTYPE(); }\n\
 \n\
-YY_LOCAL(void) yyPushCollection(GREG *G, char *text, int count, yythunk *thunk, YY_XTYPE YY_XVAR) { G->collectionStack.push(std::unordered_map<int,std::vector<YYSTYPE>>()); }\n\
+YY_LOCAL(void) yyPushCollection(GREG *G, char *text, int count, yythunk *thunk, YY_XTYPE YY_XVAR) { G->collectionStack.push(std::unordered_map<int,std::unique_ptr<YY_CTYPE>>()); }\n\
 YY_LOCAL(void) yyPopCollection(GREG *G, char *text, int count, yythunk *thunk, YY_XTYPE YY_XVAR) { G->collectionStack.pop(); }\n\
-YY_LOCAL(void) yyAddToCollection(GREG *G, char *text, int count, yythunk *thunk, YY_XTYPE YY_XVAR) { G->collectionStack.top()[count].push_back(std::move(G->ss)); }\n\
+YY_LOCAL(void) yyAddToCollection(GREG *G, char *text, int count, yythunk *thunk, YY_XTYPE YY_XVAR) { if (!G->collectionStack.top()[count].get()) G->collectionStack.top()[count]=std::unique_ptr<YY_CTYPE>(new YY_CTYPE()); G->collectionStack.top()[count]->push_back(std::move(G->ss)); }\n\
 \n\
 \n\
 #endif /* YY_PART */\n\
