@@ -40,7 +40,7 @@ struct GREG;
 
   void yyerror(GREG *, char *message);
 
-# define YY_INPUT(buf, result, max, D)		\
+# define YY_INPUT(buf, result, max, D, G)		\
   {						\
     int c= getc(input);				\
     if ('\n' == c || '\r' == c) ++lineNumber;	\
@@ -78,9 +78,10 @@ struct GREG;
 #define YY_NAME(N) yy##N
 #endif
 #ifndef YY_INPUT
-#define YY_INPUT(buf, result, max_size, D)              \
+#define YY_INPUT(buf, result, max_size, D,G)            \
   {                                                     \
     int yyc= getchar();                                 \
+    if ('\n' == yyc || '\r' == yyc) { ++G->line; G->col=0; } else ++G->col;	      \
     result= (EOF == yyc) ? 0 : (*(buf)= yyc, 1);        \
     yyprintf((stderr, "<%c>", yyc));                  \
   }
@@ -139,7 +140,7 @@ YY_CTYPE_DEFINITION()
 
 struct _yythunk; // forward declaration
 typedef void (*yyaction)(GREG *G, char *yytext, int yyleng, struct _yythunk *thunkpos, YY_XTYPE YY_XVAR);
-typedef struct _yythunk { int begin, end;  yyaction  action;  struct _yythunk *next; } yythunk;
+typedef struct _yythunk { int begin, end;  int line,col; yyaction  action;  struct _yythunk *next; } yythunk;
 
 struct GREG {
   char *buf;
@@ -160,8 +161,10 @@ struct GREG {
   int valslen;
   YY_XTYPE data;
   int maxPos;
+  int line;
+  int col;
   std::stack<std::unordered_map<int,std::unique_ptr<YY_CTYPE>>> collectionStack;
-  GREG() : buf(0),buflen(0),offset(0),pos(0),limit(0),text(0),textlen(0),begin(0),end(0),thunks(0),thunkslen(0),thunkpos(0),val(0),vals(0),valslen(0),data(0),maxPos(0) {}
+  GREG() : buf(0),buflen(0),offset(0),pos(0),limit(0),text(0),textlen(0),begin(0),end(0),thunks(0),thunkslen(0),thunkpos(0),val(0),vals(0),valslen(0),data(0),maxPos(0),line(0),col(0) {}
 };
 
 YY_LOCAL(int) yyrefill(GREG *G)
@@ -172,7 +175,7 @@ YY_LOCAL(int) yyrefill(GREG *G)
       G->buflen *= 2;
       G->buf= (char*)YY_REALLOC(G->buf, G->buflen, G->data);
     }
-  YY_INPUT((G->buf + G->pos), yyn, (G->buflen - G->pos), G->data);
+  YY_INPUT((G->buf + G->pos), yyn, (G->buflen - G->pos), G->data,G);
   if (!yyn) return 0;
   G->limit += yyn;
   return 1;
@@ -239,6 +242,8 @@ YY_LOCAL(void) yyDo(GREG *G, yyaction action, int begin, int end)
     }
   G->thunks[G->thunkpos].begin=  begin;
   G->thunks[G->thunkpos].end=    end;
+  G->thunks[G->thunkpos].line=   G->line;
+  G->thunks[G->thunkpos].col=    G->col;
   G->thunks[G->thunkpos].action= action;
   ++G->thunkpos;
 }

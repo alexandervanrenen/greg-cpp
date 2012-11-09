@@ -419,9 +419,10 @@ static char *preamble= "\
 #define YY_NAME(N) yy##N\n\
 #endif\n\
 #ifndef YY_INPUT\n\
-#define YY_INPUT(buf, result, max_size, D)              \\\n\
+#define YY_INPUT(buf, result, max_size, D,G)            \\\n\
   {                                                     \\\n\
     int yyc= getchar();                                 \\\n\
+    if ('\\n' == yyc || '\\r' == yyc) { ++G->line; G->col=0; } else ++G->col;	      \\\n\
     result= (EOF == yyc) ? 0 : (*(buf)= yyc, 1);        \\\n\
     yyprintf((stderr, \"<%c>\", yyc));                  \\\n\
   }\n\
@@ -480,7 +481,7 @@ YY_CTYPE_DEFINITION()\n\
 \n\
 struct _yythunk; // forward declaration\n\
 typedef void (*yyaction)(GREG *G, char *yytext, int yyleng, struct _yythunk *thunkpos, YY_XTYPE YY_XVAR);\n\
-typedef struct _yythunk { int begin, end;  yyaction  action;  struct _yythunk *next; } yythunk;\n\
+typedef struct _yythunk { int begin, end;  int line,col; yyaction  action;  struct _yythunk *next; } yythunk;\n\
 \n\
 struct GREG {\n\
   char *buf;\n\
@@ -501,8 +502,10 @@ struct GREG {\n\
   int valslen;\n\
   YY_XTYPE data;\n\
   int maxPos;\n\
+  int line;\n\
+  int col;\n\
   std::stack<std::unordered_map<int,std::unique_ptr<YY_CTYPE>>> collectionStack;\n\
-  GREG() : buf(0),buflen(0),offset(0),pos(0),limit(0),text(0),textlen(0),begin(0),end(0),thunks(0),thunkslen(0),thunkpos(0),val(0),vals(0),valslen(0),data(0),maxPos(0) {}\n\
+  GREG() : buf(0),buflen(0),offset(0),pos(0),limit(0),text(0),textlen(0),begin(0),end(0),thunks(0),thunkslen(0),thunkpos(0),val(0),vals(0),valslen(0),data(0),maxPos(0),line(0),col(0) {}\n\
 };\n\
 \n\
 YY_LOCAL(int) yyrefill(GREG *G)\n\
@@ -513,7 +516,7 @@ YY_LOCAL(int) yyrefill(GREG *G)\n\
       G->buflen *= 2;\n\
       G->buf= (char*)YY_REALLOC(G->buf, G->buflen, G->data);\n\
     }\n\
-  YY_INPUT((G->buf + G->pos), yyn, (G->buflen - G->pos), G->data);\n\
+  YY_INPUT((G->buf + G->pos), yyn, (G->buflen - G->pos), G->data,G);\n\
   if (!yyn) return 0;\n\
   G->limit += yyn;\n\
   return 1;\n\
@@ -580,6 +583,8 @@ YY_LOCAL(void) yyDo(GREG *G, yyaction action, int begin, int end)\n\
     }\n\
   G->thunks[G->thunkpos].begin=  begin;\n\
   G->thunks[G->thunkpos].end=    end;\n\
+  G->thunks[G->thunkpos].line=   G->line;\n\
+  G->thunks[G->thunkpos].col=    G->col;\n\
   G->thunks[G->thunkpos].action= action;\n\
   ++G->thunkpos;\n\
 }\n\
