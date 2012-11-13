@@ -1,4 +1,4 @@
-CFLAGS = -std=c++11 -g -Wall $(OFLAGS) $(XFLAGS)
+CFLAGS = -std=c++0x -g -Wall $(OFLAGS) $(XFLAGS)
 OFLAGS = -O3 -DNDEBUG
 #OFLAGS = -pg
 
