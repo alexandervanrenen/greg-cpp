@@ -23,11 +23,11 @@ $(BINDIR)/% : %
 uninstall : .FORCE
 	rm -f $(BINDIR)/greg
 
-%.o:     %.c
+%.o:     %.cpp
 	$(CXX) $(CFLAGS) -c -o $@ $<	
 
 grammar : .FORCE
-	./greg -o greg.c greg.g
+	./greg -o greg.cpp greg.g
 
 clean : .FORCE
 	rm -rf *~ *.o *.greg.[cd] greg samples/*.o samples/calc samples/*.dSYM testing1.c testing2.c *.dSYM selftest/

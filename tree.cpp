@@ -150,7 +150,7 @@ Node *makeAction(char *text)
   Node *node= newNode(Action);
   char name[1024];
   assert(thisRule);
-  sprintf(name, "_%d_%s", ++actionCount, thisRule->rule.name);
+  snprintf(name, 1024, "_%d_%s", ++actionCount, thisRule->rule.name);
   node->action.name= strdup(name);
   node->action.text= strdup(text);
   node->action.list= actions;
@@ -165,7 +165,7 @@ Node *makeAction(char *text)
   return node;
 }
 
-Node *makePredicate(char *text)
+Node *makePredicate(const char *text)
 {
   Node *node= newNode(Predicate);
   node->predicate.text= strdup(text);

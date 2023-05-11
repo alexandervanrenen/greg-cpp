@@ -108,8 +108,10 @@ static char *makeCharClass(unsigned char *cclass)
     }
 
   ptr= string;
-  for (c= 0;  c < 32;  ++c)
-    ptr += sprintf(ptr, "\\%03o", bits[c]);
+  for (c= 0;  c < 32;  ++c) {
+    assert(256 > (ptr - string));
+    ptr += snprintf(ptr, 256 - (ptr - string), "\\%03o", bits[c]);
+  }
 
   return string;
 }
@@ -379,7 +381,7 @@ static void Rule_compile_c2(Node *node)
     Rule_compile_c2(node->rule.next);
 }
 
-static char *header= "\
+static const char *header= "\
 #include <stdio.h>\n\
 #include <stdlib.h>\n\
 #include <string.h>\n\
@@ -390,7 +392,7 @@ static char *header= "\
 struct GREG;\n\
 ";
 
-static char *preamble= "\
+static const char *preamble= "\
 #ifndef YY_ALLOC\n\
 #define YY_ALLOC(N, D) malloc(N)\n\
 #endif\n\
@@ -659,7 +661,7 @@ YY_LOCAL(void) yyResetSS(GREG *G, char *text, int count, yythunk *thunk, YY_XTYP
 \n\
 ";
 
-static char *footer= "\n\
+static const char *footer= "\n\
 \n\
 #ifndef YY_PART\n\
 \n\

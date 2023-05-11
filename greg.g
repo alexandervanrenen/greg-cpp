@@ -26,6 +26,7 @@
 # include <string.h>
 # include <libgen.h>
 # include <assert.h>
+# include <string>
 
   typedef struct Header Header;
 
@@ -39,14 +40,14 @@
   int   verboseFlag= 0;
 
   static int	 lineNumber= 0;
-  static char	*fileName= 0;
+  static std::string fileName;
   static char	*trailer= 0;
   static Header	*headers= 0;
 
   void makeHeader(char *text);
   void makeTrailer(char *text);
 
-  void yyerror(GREG *, char *message);
+  void yyerror(GREG *, const char *message);
 
 # define YY_INPUT(buf, result, max, D, G)		\
   {						\
@@ -149,9 +150,9 @@ end-of-file=	!.
 
 %%
 
-void yyerror(GREG *G, char *message)
+void yyerror(GREG *G, const char *message)
 {
-  fprintf(stderr, "%s:%d: %s", fileName, lineNumber, message);
+  fprintf(stderr, "%s:%d: %s", fileName.c_str(), lineNumber, message);
   if (G->text[0]) fprintf(stderr, " near token '%s'", G->text);
   if (G->pos < G->limit || !feof(input))
     {
