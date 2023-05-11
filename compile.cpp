@@ -144,21 +144,13 @@ static void Node_compile_c_ko(Node *node, int ko)
     case Name:
       {
         if (node->name.variable) fprintf(output," yyDo(G,yyResetSS,0,0); ");
-        if (node->name.variable&&!node->name.variable->variable.collection)
-          fprintf(output, "  yyDo(G, yySet, %d, 0);", node->name.variable->variable.offset);
-          
         fprintf(output, " if (!yy_%s(G)) {", node->name.rule->rule.name);
         if(((struct Any*) node)->errblock) {
             callErrBlock(node);
         }
         fprintf(output, " goto l%d; }", ko);
         if (node->name.variable) {
-          if (!node->name.variable->variable.collection) {
-            fprintf(output, "  yyDo(G, yySet, %d, 0);", node->name.variable->variable.offset); 
-          } else {
-            fprintf(output, "  yyDo(G, yyAddToCollection, %d, 0);", node->name.variable->variable.offset);             
-            //fprintf(output, "  G->collectionStack.top()[\"%s\"].push_back(std::move(G->ss));",node->name.variable->variable.name);
-          }
+          fprintf(output, "  yyDo(G, yySet, %d, 0);", node->name.variable->variable.offset); 
         }
       }
       break;
@@ -297,31 +289,14 @@ static int countVariables(Node *node)
   return count;
 }
 
-static int countCollectionVariables(Node *node)
-{
-  int count= 0;
-  while (node)
-    {
-      if (node->variable.collection) ++count;
-      node= node->variable.next;
-    }
-  return count;
-}
-
 static void defineVariables(Node *node)
 {
   int count= 0;
   while (node)
     {
-      if (node->variable.collection) {
-        fprintf(output, "#define %s (G->collectionStack.top()[%d])\n", node->variable.name, --count);
-        node->variable.offset= count;
-        node= node->variable.next;
-      } else {
-        fprintf(output, "#define %s G->val[%d]\n", node->variable.name, --count);
-        node->variable.offset= count;
-        node= node->variable.next;
-      }
+      fprintf(output, "#define %s G->val[%d]\n", node->variable.name, --count);
+      node->variable.offset= count;
+      node= node->variable.next;
     }
 }
 
@@ -354,8 +329,6 @@ static void Rule_compile_c2(Node *node)
       fprintf(output, "\nYY_RULE(int) yy_%s(GREG *G)\n{", node->rule.name);
       if (!safe) save(0);
       if (node->rule.variables) {
-        if (countCollectionVariables(node->rule.variables))
-          fprintf(output, "  yyDo(G, yyPushCollection, 0, 0);");
         fprintf(output, "  yyDo(G, yyPush, %d, 0);", countVariables(node->rule.variables));
       }
       fprintf(output, "\n  yyprintf((stderr, \"%%s\\n\", \"%s\"));", node->rule.name);
@@ -363,8 +336,6 @@ static void Rule_compile_c2(Node *node)
       fprintf(output, "\n  yyprintf((stderr, \"  ok   %%s @ %%s\\n\", \"%s\", G->buf+G->pos));", node->rule.name);
       if (node->rule.variables) {
         fprintf(output, "  yyDo(G, yyPop, %d, 0);", countVariables(node->rule.variables));
-        if (countCollectionVariables(node->rule.variables))
-          fprintf(output, "  yyDo(G, yyPopCollection, 0, 0);");
       }
       fprintf(output, "\n  return 1;");
       if (!safe)
@@ -458,25 +429,6 @@ static const char *preamble= "\
 #define YY_BUFFER_START_SIZE 1024\n\
 #endif\n\
 \n\
-#ifndef YY_AST_TYPE\n\
-#define YY_AST_TYPE\n\
-#endif\n\
-\n\
-#ifndef YY_CTYPE_DEFINITION \n\
-#define YY_CTYPE_DEFINITION() \\\n\
-  struct Collection YY_AST_TYPE { \\\n\
-    std::vector<YYSTYPE> items; \\\n\
-    void push_back(YYSTYPE&& item) { items.push_back(std::move(item)); } \\\n\
-    operator std::vector<YYSTYPE>&() { return items; } \\\n\
-  };\n\
-#endif\n\
-\n\
-YY_CTYPE_DEFINITION()\n\
-\n\
-#ifndef YY_CTYPE\n\
-#define YY_CTYPE Collection\n\
-#endif\n\
-\n\
 #ifndef YY_PART\n\
 #define yydata G->data\n\
 #define yy G->ss\n\
@@ -506,7 +458,6 @@ struct GREG {\n\
   int maxPos;\n\
   int line;\n\
   int col;\n\
-  std::stack<std::unordered_map<int,std::unique_ptr<YY_CTYPE>>> collectionStack;\n\
   GREG() : buf(0),buflen(0),offset(0),pos(0),limit(0),text(0),textlen(0),begin(0),end(0),thunks(0),thunkslen(0),thunkpos(0),val(0),vals(0),valslen(0),data(0),maxPos(0),line(0),col(0) {}\n\
 };\n\
 \n\

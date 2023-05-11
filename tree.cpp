@@ -90,20 +90,13 @@ void Rule_setExpression(Node *node, Node *expression)
 Node *makeVariable(char *name)
 {
   Node *node;
-  
-  bool collection=false;
-  if (name[0]=='@') {
-    collection=true;
-    name=&name[1];
-  }          
+
   assert(thisRule);
   for (node= thisRule->rule.variables;  node;  node= node->variable.next)
     if (!strcmp(name, node->variable.name)) {
-      assert(node->variable.collection==collection);
       return node;
     }
   node= newNode(Variable);
-  node->variable.collection=collection;
   node->variable.name= strdup(name);
   node->variable.next= thisRule->rule.variables;
   thisRule->rule.variables= node;

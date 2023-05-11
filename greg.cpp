@@ -120,25 +120,6 @@ struct GREG;
 #define YY_BUFFER_START_SIZE 1024
 #endif
 
-#ifndef YY_AST_TYPE
-#define YY_AST_TYPE
-#endif
-
-#ifndef YY_CTYPE_DEFINITION 
-#define YY_CTYPE_DEFINITION() \
-  struct Collection YY_AST_TYPE { \
-    std::vector<YYSTYPE> items; \
-    void push_back(YYSTYPE&& item) { items.push_back(std::move(item)); } \
-    operator std::vector<YYSTYPE>&() { return items; } \
-  };
-#endif
-
-YY_CTYPE_DEFINITION()
-
-#ifndef YY_CTYPE
-#define YY_CTYPE Collection
-#endif
-
 #ifndef YY_PART
 #define yydata G->data
 #define yy G->ss
@@ -168,7 +149,6 @@ struct GREG {
   int maxPos;
   int line;
   int col;
-  std::stack<std::unordered_map<int,std::unique_ptr<YY_CTYPE>>> collectionStack;
   GREG() : buf(0),buflen(0),offset(0),pos(0),limit(0),text(0),textlen(0),begin(0),end(0),thunks(0),thunkslen(0),thunkpos(0),val(0),vals(0),valslen(0),data(0),maxPos(0),line(0),col(0) {}
 };
 
