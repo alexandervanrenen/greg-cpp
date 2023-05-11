@@ -458,7 +458,18 @@ struct GREG {\n\
   int maxPos;\n\
   int line;\n\
   int col;\n\
+  #ifdef YY_ADDITIONAL_GREG_MEMBER_TYPE\n\
+    YY_ADDITIONAL_GREG_MEMBER_TYPE user_data;\n\
+  #endif\n\
   GREG() : buf(0),buflen(0),offset(0),pos(0),limit(0),text(0),textlen(0),begin(0),end(0),thunks(0),thunkslen(0),thunkpos(0),val(0),vals(0),valslen(0),data(0),maxPos(0),line(0),col(0) {}\n\
+  GREG(const GREG&) = delete;\n\
+  GREG(GREG&&) = delete;\n\
+  ~GREG() {\n\
+    if (buf) YY_FREE(buf);\n\
+    if (text) YY_FREE(text);\n\
+    if (thunks) YY_FREE(thunks);\n\
+    if (vals) YY_FREE(vals);\n\
+  }\n\
 };\n\
 \n\
 YY_LOCAL(int) yyrefill(GREG *G)\n\
@@ -659,30 +670,6 @@ YY_PARSE(int) YY_NAME(parse_from)(GREG *G, yyrule yystart)\n\
 YY_PARSE(int) YY_NAME(parse)(GREG *G)\n\
 {\n\
   return YY_NAME(parse_from)(G, yy_%s);\n\
-}\n\
-\n\
-YY_PARSE(void) YY_NAME(init)(GREG *G)\n\
-{\n\
-    //memset(G, 0, sizeof(GREG));\n\
-}\n\
-YY_PARSE(void) YY_NAME(deinit)(GREG *G)\n\
-{\n\
-    if (G->buf) YY_FREE(G->buf);\n\
-    if (G->text) YY_FREE(G->text);\n\
-    if (G->thunks) YY_FREE(G->thunks);\n\
-    if (G->vals) YY_FREE(G->vals);\n\
-}\n\
-YY_PARSE(GREG *) YY_NAME(parse_new)(YY_XTYPE data)\n\
-{\n\
-  GREG *G = (GREG *)YY_CALLOC(1, sizeof(GREG), G->data);\n\
-  G->data = data;\n\
-  return G;\n\
-}\n\
-\n\
-YY_PARSE(void) YY_NAME(parse_free)(GREG *G)\n\
-{\n\
-  YY_NAME(deinit)(G);\n\
-  YY_FREE(G);\n\
 }\n\
 \n\
 #endif\n\

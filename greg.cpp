@@ -149,7 +149,18 @@ struct GREG {
   int maxPos;
   int line;
   int col;
+  #ifdef YY_ADDITIONAL_GREG_MEMBER_TYPE
+    YY_ADDITIONAL_GREG_MEMBER_TYPE user_data;
+  #endif
   GREG() : buf(0),buflen(0),offset(0),pos(0),limit(0),text(0),textlen(0),begin(0),end(0),thunks(0),thunkslen(0),thunkpos(0),val(0),vals(0),valslen(0),data(0),maxPos(0),line(0),col(0) {}
+  GREG(const GREG&) = delete;
+  GREG(GREG&&) = delete;
+  ~GREG() {
+    if (buf) YY_FREE(buf);
+    if (text) YY_FREE(text);
+    if (thunks) YY_FREE(thunks);
+    if (vals) YY_FREE(vals);
+  }
 };
 
 YY_LOCAL(int) yyrefill(GREG *G)
@@ -1014,30 +1025,6 @@ YY_PARSE(int) YY_NAME(parse)(GREG *G)
   return YY_NAME(parse_from)(G, yy_grammar);
 }
 
-YY_PARSE(void) YY_NAME(init)(GREG *G)
-{
-    //memset(G, 0, sizeof(GREG));
-}
-YY_PARSE(void) YY_NAME(deinit)(GREG *G)
-{
-    if (G->buf) YY_FREE(G->buf);
-    if (G->text) YY_FREE(G->text);
-    if (G->thunks) YY_FREE(G->thunks);
-    if (G->vals) YY_FREE(G->vals);
-}
-YY_PARSE(GREG *) YY_NAME(parse_new)(YY_XTYPE data)
-{
-  GREG *G = (GREG *)YY_CALLOC(1, sizeof(GREG), G->data);
-  G->data = data;
-  return G;
-}
-
-YY_PARSE(void) YY_NAME(parse_free)(GREG *G)
-{
-  YY_NAME(deinit)(G);
-  YY_FREE(G);
-}
-
 #endif
 
 #pragma GCC diagnostic warning "-Wunused-parameter"
@@ -1104,7 +1091,6 @@ static void usage(char *name)
 
 int main(int argc, char **argv)
 {
-  GREG *G;
   Node *n;
   int   c;
 
@@ -1145,7 +1131,7 @@ int main(int argc, char **argv)
   argc -= optind;
   argv += optind;
 
-  G = yyparse_new(NULL);
+  GREG greg;
   if (argc)
     {
       for (;  argc;  --argc, ++argv)
@@ -1165,16 +1151,15 @@ int main(int argc, char **argv)
 	      fileName= *argv;
 	    }
 	  lineNumber= 1;
-	  if (!yyparse(G))
-	    yyerror(G, "syntax error");
+	  if (!yyparse(&greg))
+	    yyerror(&greg, "syntax error");
 	  if (input != stdin)
 	    fclose(input);
 	}
     }
   else
-    if (!yyparse(G))
-      yyerror(G, "syntax error");
-  yyparse_free(G);
+    if (!yyparse(&greg))
+      yyerror(&greg, "syntax error");
 
   if (verboseFlag)
     for (n= rules;  n;  n= n->any.next)

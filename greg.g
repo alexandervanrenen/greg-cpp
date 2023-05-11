@@ -209,7 +209,6 @@ static void usage(char *name)
 
 int main(int argc, char **argv)
 {
-  GREG *G;
   Node *n;
   int   c;
 
@@ -250,7 +249,7 @@ int main(int argc, char **argv)
   argc -= optind;
   argv += optind;
 
-  G = yyparse_new(NULL);
+  GREG greg;
   if (argc)
     {
       for (;  argc;  --argc, ++argv)
@@ -270,16 +269,15 @@ int main(int argc, char **argv)
 	      fileName= *argv;
 	    }
 	  lineNumber= 1;
-	  if (!yyparse(G))
-	    yyerror(G, "syntax error");
+	  if (!yyparse(&greg))
+	    yyerror(&greg, "syntax error");
 	  if (input != stdin)
 	    fclose(input);
 	}
     }
   else
-    if (!yyparse(G))
-      yyerror(G, "syntax error");
-  yyparse_free(G);
+    if (!yyparse(&greg))
+      yyerror(&greg, "syntax error");
 
   if (verboseFlag)
     for (n= rules;  n;  n= n->any.next)
