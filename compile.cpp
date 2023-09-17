@@ -175,7 +175,7 @@ static void Node_compile_c_ko(Node *node, int ko)
       break;
 
     case Predicate:
-      fprintf(output, "  yyText(G, G->begin, G->end);  if (!(%s)) goto l%d;", node->action.text, ko);
+      fprintf(output, "  if (!(%s)) goto l%d;", node->action.text, ko);
       break;
 
     case Alternate:
