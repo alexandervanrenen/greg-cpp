@@ -2,6 +2,8 @@ CFLAGS = -std=c++0x -g -Wall $(OFLAGS) $(XFLAGS)
 OFLAGS = -O3 -DNDEBUG
 #OFLAGS = -pg
 
+CXX := $(shell command -v g++ >/dev/null 2>&1 && echo g++ || echo clang++)
+
 OBJS = tree.o compile.o
 
 all : greg
